@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Parser de Ponto</title>
+<title>Parser</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
@@ -71,7 +71,7 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--text-3);border-
 </head>
 <body>
 <nav>
-  <span class="logo">Parser de Ponto</span>
+  <span class="logo">Parser</span>
   <button id="theme-btn" title="Alternar tema">
     <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
     <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -79,8 +79,8 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--text-3);border-
 </nav>
 <main>
   <div class="card">
-    <h1>Relatório de Ponto</h1>
-    <p class="sub">Processamento 100% local — o arquivo PDF nunca sai da sua máquina.</p>
+    <h1>Relatório</h1>
+    <p class="sub">Processamento local.</p>
     <div id="drop-zone">
       <input type="file" id="file-input" accept=".pdf"/>
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -107,7 +107,7 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--text-3);border-
     <div id="debug-wrap" style="display:none;margin-top:16px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);font-size:11px;color:var(--text-3);font-family:monospace;white-space:pre-wrap;max-height:200px;overflow:auto"></div>
   </div>
 </main>
-<footer>Processamento 100% local — nenhum dado enviado ao servidor &nbsp;·&nbsp; <span id="yr"></span></footer>
+<footer>Processamento local &nbsp;·&nbsp; <span id="yr"></span></footer>
 
 <!-- PDF.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -217,7 +217,7 @@ const RE_STRUCT   = /Estrutura organizacional:\s*(.+)/;
 const RE_CPF      = /CPF:\s*([\d.\-]+)/;
 const RE_PIS      = /PIS:\s*([\d.\-]+)/;
 const RE_ADMISS   = /Data de admiss[^:]*:\s*([\d/]+)/i;
-// RE_GERADO: sem âncora ^ pois gap-aware join une "Relatório de Ponto..." com a data
+// RE_GERADO: sem âncora ^ pois gap-aware join une "Relatório..." com a data
 // Captura grupos 1+2 (merged) ou 3+4 (standalone)
 const RE_GERADO   = /Relat[oó]rio de Ponto.*?(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}:\d{2})|^(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}:\d{2})/;
 const RE_EMPRESA  = /Empresa:\s*(.+)/;
@@ -423,7 +423,7 @@ function newEmp(geradoEm, empresa) {
 
 function parsePDF(lines) {
   const employees = [];
-  // pendingGerado: guarda a data da linha "Relatório de Ponto..." que aparece ANTES de "Nome:"
+  // pendingGerado: guarda a data da linha "Relatório ..." que aparece ANTES de "Nome:"
   // NÃO atribuído ao cur ativo (que pertence à página anterior, para folhas multi-página).
   // Só é consumido quando "Nome:" cria um novo employee.
   let cur = null, geradoEm = '', pendingGerado = '', empresa = '', pendingObs = '';
@@ -445,7 +445,7 @@ function parsePDF(lines) {
     if (!line) continue;
 
     // ── Data de geração ──────────────────────────────────────────────
-    // A linha "Relatório de Ponto..." aparece ANTES de "Nome:" na mesma página.
+    // A linha "Relatório..." aparece ANTES de "Nome:" na mesma página.
     // Se a atribuíssemos a cur já existente, contaminaríamos o employee anterior
     // (que pode ter mais de uma página). Guardamos em pendingGerado.
     let m = line.match(RE_GERADO);
