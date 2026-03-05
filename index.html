@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="auto">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Parser de Ponto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fff;--surface:#f7f7f7;--surface-2:#efefef;--border:#e2e2e2;
+  --text:#111;--text-2:#666;--text-3:#999;
+  --accent:#111;--accent-h:#333;
+  --success:#15803d;--error:#b91c1c;--error-bg:#fef2f2;--error-border:#fecaca;
+  --r:10px;--font:'DM Sans',system-ui,sans-serif
+}
+[data-theme="dark"]{
+  --bg:#0f0f0f;--surface:#1a1a1a;--surface-2:#252525;--border:#2e2e2e;
+  --text:#f0f0f0;--text-2:#a0a0a0;--text-3:#606060;
+  --accent:#f0f0f0;--accent-h:#ccc;
+  --success:#4ade80;--error:#f87171;--error-bg:#1f0000;--error-border:#7f1d1d
+}
+@media(prefers-color-scheme:dark){[data-theme="auto"]{
+  --bg:#0f0f0f;--surface:#1a1a1a;--surface-2:#252525;--border:#2e2e2e;
+  --text:#f0f0f0;--text-2:#a0a0a0;--text-3:#606060;
+  --accent:#f0f0f0;--accent-h:#ccc;
+  --success:#4ade80;--error:#f87171;--error-bg:#1f0000;--error-border:#7f1d1d
+}}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;transition:background .2s,color .2s}
+nav{border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:10}
+.logo{font-weight:600;font-size:15px;letter-spacing:-.3px}
+#theme-btn{width:32px;height:32px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);transition:.15s}
+#theme-btn:hover{background:var(--surface-2);color:var(--text)}
+.icon-sun,.icon-moon{display:none}
+[data-theme="dark"] .icon-sun{display:block}
+[data-theme="light"] .icon-moon{display:block}
+@media(prefers-color-scheme:dark){[data-theme="auto"] .icon-sun{display:block}}
+@media(prefers-color-scheme:light){[data-theme="auto"] .icon-moon{display:block}}
+main{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:60px 20px 80px}
+.card{width:100%;max-width:480px}
+h1{font-size:24px;font-weight:600;letter-spacing:-.4px;margin-bottom:8px}
+.sub{font-size:14px;color:var(--text-2);margin-bottom:32px;line-height:1.6}
+#drop-zone{border:1.5px dashed var(--border);border-radius:var(--r);padding:40px 20px;text-align:center;cursor:pointer;background:var(--surface);position:relative;transition:.15s}
+#drop-zone:hover,#drop-zone.over{border-color:var(--text-3);background:var(--surface-2)}
+#drop-zone svg{color:var(--text-3);margin-bottom:12px}
+#drop-zone p{font-size:14px;color:var(--text-2);line-height:1.6}
+#fn{font-size:13px;color:var(--success);margin-top:6px;font-weight:500;min-height:18px}
+#file-input{position:absolute;inset:0;opacity:0;cursor:pointer}
+#btn-up{width:100%;margin-top:12px;padding:13px;border:none;border-radius:var(--r);background:var(--accent);color:var(--bg);font-size:15px;font-weight:600;cursor:pointer;transition:.15s;letter-spacing:-.2px}
+#btn-up:hover:not(:disabled){background:var(--accent-h)}
+#btn-up:disabled{opacity:.4;cursor:not-allowed}
+#prog-wrap{margin-top:20px;display:none}
+.prog-header{display:flex;justify-content:space-between;margin-bottom:8px}
+.prog-label{font-size:13px;font-weight:500}
+#pp{font-size:13px;color:var(--text-2)}
+.prog-track{height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.prog-bar{height:100%;background:var(--accent);border-radius:99px;width:0%;transition:width .3s ease}
+#pm{font-size:12px;color:var(--text-3);margin-top:6px}
+#err-wrap{display:none;margin-top:16px;padding:12px 14px;border:1px solid var(--error-border);border-radius:var(--r);background:var(--error-bg);font-size:13px;color:var(--error);white-space:pre-wrap;word-break:break-all}
+#res-wrap{display:none;margin-top:20px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.res-row{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);font-size:14px}
+.res-row:last-child{border-bottom:none}
+.res-label{color:var(--text-2)}
+.res-value{font-weight:600}
+#btn-dl{width:100%;margin-top:12px;padding:13px;border:1px solid var(--border);border-radius:var(--r);background:transparent;color:var(--text);font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
+#btn-dl:hover{background:var(--surface)}
+#btn-re{display:block;margin:12px auto 0;background:none;border:none;color:var(--text-3);font-size:13px;cursor:pointer;text-decoration:underline}
+footer{text-align:center;padding:20px;font-size:12px;color:var(--text-3);border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+<nav>
+  <span class="logo">Parser de Ponto</span>
+  <button id="theme-btn" title="Alternar tema">
+    <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
+</nav>
+<main>
+  <div class="card">
+    <h1>Relatório de Ponto</h1>
+    <p class="sub">Processamento 100% local — o arquivo PDF nunca sai da sua máquina.</p>
+    <div id="drop-zone">
+      <input type="file" id="file-input" accept=".pdf"/>
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <p>Arraste o PDF aqui ou clique para selecionar<br><small>Apenas arquivos .pdf</small></p>
+      <div id="fn"></div>
+    </div>
+    <button id="btn-up" disabled>Processar</button>
+    <div id="prog-wrap">
+      <div class="prog-header"><span class="prog-label">Processando…</span><span id="pp">0%</span></div>
+      <div class="prog-track"><div class="prog-bar" id="pb"></div></div>
+      <p id="pm"></p>
+    </div>
+    <div id="err-wrap"></div>
+    <div id="res-wrap">
+      <div class="res-row"><span class="res-label">Colaboradores</span><span class="res-value" id="re"></span></div>
+      <div class="res-row"><span class="res-label">Registros diários</span><span class="res-value" id="rr"></span></div>
+      <div class="res-row"><span class="res-label">Abas geradas</span><span class="res-value">Dados Individuais · Registros Diários</span></div>
+    </div>
+    <button id="btn-dl" style="display:none">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Baixar planilha Excel
+    </button>
+    <button id="btn-re" style="display:none">Processar outro arquivo</button>
+    <div id="debug-wrap" style="display:none;margin-top:16px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);font-size:11px;color:var(--text-3);font-family:monospace;white-space:pre-wrap;max-height:200px;overflow:auto"></div>
+  </div>
+</main>
+<footer>Processamento 100% local — nenhum dado enviado ao servidor &nbsp;·&nbsp; <span id="yr"></span></footer>
+
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- SheetJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+'use strict';
+
+// ─── Theme ───────────────────────────────────────────────────────────────────
+document.getElementById('yr').textContent = new Date().getFullYear();
+const themeBtn = document.getElementById('theme-btn');
+const themes = ['auto','light','dark'];
+themeBtn.addEventListener('click', () => {
+  const cur = document.documentElement.dataset.theme || 'auto';
+  document.documentElement.dataset.theme = themes[(themes.indexOf(cur)+1)%3];
+});
+
+// ─── PDF.js worker ───────────────────────────────────────────────────────────
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UTILS  (espelho exato do Python)
+// ═══════════════════════════════════════════════════════════════════════════
+function toMin(s) {
+  if (!s) return 0;
+  const m = String(s).trim().match(/^(-?)(\d+):(\d+)$/);
+  if (m) return (parseInt(m[2])*60 + parseInt(m[3])) * (m[1] ? -1 : 1);
+  return 0;
+}
+function toHHMM(m) {
+  m = Math.round(m);
+  const neg = m < 0; m = Math.abs(m);
+  return `${neg?'-':''}${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+}
+function parseTimestamp(dateStr, timeStr) {
+  // O PDF armazena timestamps em horário local BRT — não há conversão de fuso
+  if (!dateStr || !timeStr) return '';
+  return `${dateStr} - ${timeStr}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATUS & CATEGORIA
+// ═══════════════════════════════════════════════════════════════════════════
+// Ordem importa: prefixo mais específico antes do genérico
+const STATUS_MAP = [
+  ['folga de campo',   'Folga'],
+  ['descanso semanal', 'Descanso Semanal'],
+  ['ferias',           'Ferias'],
+  ['férias',           'Ferias'],
+  ['compensado',       'Compensado'],
+  ['feriado',          'Feriado'],
+  ['afastamento',      'Afastamento'],
+  ['atestado',         'Atestado'],
+  ['licenca',          'Licenca'],
+  ['licença',          'Licenca'],
+  ['falta',            'Falta'],
+  ['desmobilizado',    'Desmobilizado'],
+  ['demissao',         'Demissao'],
+  ['demissão',         'Demissao'],
+  ['demitido',         'Demissao'],
+  ['rescisao',         'Demissao'],
+  ['rescisão',         'Demissao'],
+  ['folga',            'Folga'],
+];
+const CATEGORIA_LABEL = {
+  'Ferias':          'Férias',
+  'Folga':           'Folga / DSR',
+  'Descanso Semanal':'Descanso Semanal',
+  'Compensado':      'Dia Compensado',
+  'Feriado':         'Feriado',
+  'Afastamento':     'Afastamento',
+  'Atestado':        'Atestado Médico',
+  'Licenca':         'Licença',
+  'Falta':           'Falta',
+  'Desmobilizado':   'Desmobilizado',
+  'Demissao':        'Demissão / Rescisão',
+  'Trabalhou':       '',
+};
+const JUSTIFICATIVAS_CAT = new Set([
+  'Ferias','Afastamento','Atestado','Falta','Feriado','Desmobilizado','Demissao','Licenca'
+]);
+const SKIP_KW = [
+  'Totais:','Saldo ','Empresa:','Endereco:','Nome:','Matricula:','Cargo:',
+  'PIS:','Relatorio','DIMEP','Kairos','Rendimento','Descontos','H.Trab','Data ',
+  'Assinatura','©','Classificada:','DSR:','Legenda:','Editadas','Totais horas',
+];
+
+function detectarStatus(lc) {
+  // Tenta startsWith primeiro (mais específico)
+  for (const [kw,label] of STATUS_MAP) if (lc.startsWith(kw)) return label;
+  // Depois includes
+  for (const [kw,label] of STATUS_MAP) if (lc.includes(kw)) return label;
+  return 'Trabalhou';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REGEXES  — sem flag /g em constantes reutilizadas com .test()
+// ═══════════════════════════════════════════════════════════════════════════
+const RE_NOME     = /Nome:\s*(.+?)\s+Data de admiss/;
+const RE_NOME_ALT = /Nome:\s*(.+)/;          // fallback se acima falhar
+const RE_MAT      = /Matr[íi]cula:\s*(\d+)/i;
+const RE_CARGO    = /Cargo:\s*(.+?)\s+Carteira de Trabalho/;
+const RE_BASE     = /Base de horas:\s*([\d,.]+)/;
+const RE_STRUCT   = /Estrutura organizacional:\s*(.+)/;
+const RE_CPF      = /CPF:\s*([\d.\-]+)/;
+const RE_PIS      = /PIS:\s*([\d.\-]+)/;
+const RE_ADMISS   = /Data de admiss[^:]*:\s*([\d/]+)/i;
+// RE_GERADO: sem âncora ^ pois gap-aware join une "Relatório de Ponto..." com a data
+// Captura grupos 1+2 (merged) ou 3+4 (standalone)
+const RE_GERADO   = /Relat[oó]rio de Ponto.*?(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}:\d{2})|^(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}:\d{2})/;
+const RE_EMPRESA  = /Empresa:\s*(.+)/;
+const RE_HORARIO  = /Hor[aá]rio:\s*(.+?)(?:\s{2,}|$)/;
+const RE_TOTAIS   = /Totais:\s*/i;
+const RE_SALDO    = /Saldo Anterior:\s*([\-\d:]+)\s+Saldo Per[ií]odo:\s*([\-\d:]+)\s+Saldo Atual:\s*([\-\d:]+)/;
+const RE_DIAS_TR  = /Dias trabalhados:(\d+)/;
+const RE_FALTAS   = /Faltas:([\d:]+)/;
+const RE_ATRASOS  = /Atrasos:([\d:]+)/;
+// HE% — usada com matchAll, criada sempre nova
+const RE_HE_PCT_SRC = /([\d:]+)\s*-\s*HORA EXTRA\s+(\d+)%/g;
+const RE_ASSINADO = /Assinado Digitalmente por/i;
+const RE_EMAIL    = /([\w.\-]+@[\w.\-]+\.[\w]+)/;
+const RE_DAY      = /^(\d{2}\/\d{2}\/\d{4})\s+(seg|ter|qua|qui|sex|s[aá]b|dom)\s*(.*)/i;
+const RE_MARC     = /^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s+(.*)/;
+// RE_PAR e RE_TOK precisam de flag g cada chamada → usamos source
+const RE_PAR_SRC  = /(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/;
+const RE_TOK_SRC  = /\b(\d{1,2}:\d{2})\b/;
+const RE_PRE_SRC  = /(\|?\s*\d{1,2}:\d{2}\s*-\s*)?PR[EÉ][- ]ASSINALADO(\s*\|?\s*\d{1,2}:\d{2}\s*-?)?/i;
+const RE_COD_INI  = /^\d{1,3}[\s\-]+/;
+const RE_DIVERGE  = /diverg[eê]ncia|diverge[nñ]/i;
+const RE_EDITADA  = /editad[ao]|ajuste|ajust/i;
+const RE_ESQUEC   = /esquec|olvid/i;
+const RE_HEXT     = /\bh\.?\s*ext|hora\s+extra/i;
+const RE_ATRAS_T  = /\batraso\b/i;
+const RE_FALTA_T  = /\bfalta\b/i;
+
+function temPreAssinalado(raw) {
+  return new RegExp(RE_PRE_SRC.source, 'i').test(raw || '');
+}
+function limparJustificativa(raw) {
+  let t = (raw || '').trim();
+  t = t.replace(new RegExp(RE_PRE_SRC.source, 'gi'), '').trim();
+  t = t.replace(RE_COD_INI, '').trim();
+  t = t.replace(/^[\s|\-]+|[\s|\-]+$/g, '');
+  return t;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OBSERVAÇÕES
+// ═══════════════════════════════════════════════════════════════════════════
+const HORAS_MIN = 6*60, HORAS_MAX = 14*60;
+function gerarObservacoes(d) {
+  const flags = [];
+  const { status, entrada_1, saida_1, entrada_2, saida_2, marcacao_ini,
+          pre_assinalado, justificativa_texto } = d;
+  const htrabMin = toMin(d.htrab), heMin = toMin(d.he), adntMin = toMin(d.adnt);
+  const entradas = [entrada_1,entrada_2].filter(Boolean);
+  const saidas   = [saida_1,saida_2].filter(Boolean);
+  if (pre_assinalado) flags.push('Pré-Assinalado');
+  if (status === 'Trabalhou') {
+    if (entradas.length > saidas.length)      flags.push('Entrada sem Saída');
+    else if (saidas.length > entradas.length) flags.push('Saída sem Entrada');
+    if (!entradas.length && !saidas.length && !marcacao_ini)
+      flags.push(htrabMin === 0 ? 'Sem Marcação' : 'Marcação Calculada / Sem Batida');
+    if (htrabMin === 0 && (entradas.length || marcacao_ini)) flags.push('Hora Zerada com Marcação');
+    if (htrabMin > 0 && htrabMin < HORAS_MIN) flags.push(`Horas Abaixo do Mínimo (${d.htrab}h)`);
+    if (htrabMin > HORAS_MAX) flags.push(`Horas Elevadas (${d.htrab}h)`);
+    if (heMin > 0 && !d.he_classificada) flags.push('HE Não Classificada');
+  }
+  if (['Descanso Semanal','Folga'].includes(status) && (entradas.length || htrabMin > 0))
+    flags.push('Trabalhou no DSR/Folga');
+  if (status === 'Ferias' && (entradas.length || htrabMin > 0))
+    flags.push('Marcação em Férias');
+  if (adntMin > 0) flags.push('Adicional Noturno');
+  if (justificativa_texto) {
+    if (RE_DIVERGE.test(justificativa_texto)) flags.push('Divergência Apontada');
+    if (RE_EDITADA.test(justificativa_texto)) flags.push('Marcação Editada');
+    if (RE_ESQUEC.test(justificativa_texto))  flags.push('Esquecimento de Ponto');
+    if (RE_ATRAS_T.test(justificativa_texto) && !flags.some(f=>f.includes('Atraso'))) flags.push('Atraso Registrado');
+    if (RE_FALTA_T.test(justificativa_texto) && status !== 'Falta') flags.push('Menção a Falta');
+    if (RE_HEXT.test(justificativa_texto)) flags.push('Menção a Hora Extra');
+  }
+  return flags.join(' | ');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXTRAÇÃO DE TEXTO DO PDF  (agrupa por linha como pdfplumber)
+// ═══════════════════════════════════════════════════════════════════════════
+async function extractLines(file, onProgress) {
+  const buffer = await file.arrayBuffer();
+  const pdf    = await pdfjsLib.getDocument({ data: buffer }).promise;
+  const lines  = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    if (p % 10 === 0) onProgress(p, pdf.numPages);
+    const page    = await pdf.getPage(p);
+    const rotate  = page.rotate || 0;
+    const content = await page.getTextContent();
+    lines.push(...itemsToLines(content.items, rotate));
+  }
+  return lines;
+}
+
+/*
+ * PDF.js aplica a rotação da página nos transforms dos itens de texto.
+ * Para páginas com rotação 90° ou 270°, os eixos são trocados:
+ *   - rotação 0°/180°: tf[5] identifica a linha (Y), tf[4] ordena a coluna (X)
+ *   - rotação 90°/270°: tf[4] identifica a linha (X vira Y), tf[5] ordena a coluna
+ *
+ * JOIN COM GAP: PDF.js pode retornar caracteres individuais (sem espaço entre eles).
+ * Inserimos espaço apenas quando o gap visual entre itens consecutivos > GAP_SP pontos.
+ * item.width = avanço tipográfico do item na direção do texto (coluna após rotação).
+ */
+function itemsToLines(items, rotate = 0) {
+  if (!items.length) return [];
+  const THRESH = 3;   // tolerância de agrupamento de linha (pts)
+  const GAP_SP = 2.5; // gap mínimo para inserir espaço entre itens (pts)
+
+  const rot90 = (rotate === 90 || rotate === 270);
+
+  // rowVal: coordenada que identifica qual linha visual o item pertence
+  // colVal: coordenada para ordenar da esquerda para a direita
+  const rowVal = item => rot90 ? item.transform[4] : item.transform[5];
+  const colVal = item => rot90 ? item.transform[5] : item.transform[4];
+
+  // Agrupa itens com rowVal próximo (mesma linha visual)
+  const groups = [];
+  for (const item of items) {
+    if (!item.str || !item.str.trim()) continue;
+    const r = rowVal(item);
+    const g = groups.find(g => Math.abs(g.r - r) <= THRESH);
+    if (g) {
+      g.items.push({ c: colVal(item), w: item.width || 0, str: item.str });
+    } else {
+      groups.push({ r, items: [{ c: colVal(item), w: item.width || 0, str: item.str }] });
+    }
+  }
+
+  // Ordena grupos de cima para baixo da página
+  groups.sort((a, b) => rot90 ? a.r - b.r : b.r - a.r);
+
+  return groups.map(g => {
+    // Ordena itens da esquerda para a direita
+    g.items.sort((a, b) => a.c - b.c);
+    // JOIN COM GAP: só insere espaço se há lacuna visual entre itens consecutivos
+    let line = g.items[0].str;
+    for (let i = 1; i < g.items.length; i++) {
+      const prev = g.items[i - 1];
+      const cur  = g.items[i];
+      const gap  = cur.c - (prev.c + (prev.w || 0));
+      if (gap > GAP_SP) line += ' ';
+      line += cur.str;
+    }
+    return line.replace(/\s+/g, ' ').trim();
+  }).filter(l => l.length > 0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PARSE DAY LINE  (espelho de _parse_day_line do Python)
+// ═══════════════════════════════════════════════════════════════════════════
+function parseDayLine(rest) {
+  const rePar = new RegExp(RE_PAR_SRC.source, 'g');
+  const reTok = new RegExp(RE_TOK_SRC.source, 'g');
+  const pares = [];
+  let m;
+
+  while ((m = rePar.exec(rest)) !== null) pares.push([m[1], m[2]]);
+
+  if (pares.length) {
+    const tokensAll = [...rest.matchAll(new RegExp(RE_TOK_SRC.source,'g'))].map(x=>x[1]);
+    const usedIdx = new Set();
+    let idx = 0;
+    for (const p of pares) {
+      for (const t of p) {
+        while (idx < tokensAll.length && tokensAll[idx] !== t) idx++;
+        if (idx < tokensAll.length) { usedIdx.add(idx); idx++; }
+      }
+    }
+    const tokensRest = tokensAll.filter((_,i) => !usedIdx.has(i));
+    return { pares, tokensRest };
+  }
+
+  // Fallback: sequencial sem hifens
+  const tokensAll = [...rest.matchAll(new RegExp(RE_TOK_SRC.source,'g'))].map(x=>x[1]);
+  let pairCount = 0;
+  for (let i = 0; i < tokensAll.length-1; i += 2) {
+    const eMin = toMin(tokensAll[i]), sMin = toMin(tokensAll[i+1]);
+    const dur  = sMin - eMin;
+    if (pairCount < 2 && sMin > eMin && dur >= 30 && dur <= 18*60) {
+      pares.push([tokensAll[i], tokensAll[i+1]]); pairCount++;
+    } else break;
+  }
+  return { pares, tokensRest: tokensAll.slice(pares.length*2) };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PARSER PRINCIPAL  (espelho fiel de parse_iter_employees do Python)
+// ═══════════════════════════════════════════════════════════════════════════
+function newEmp(geradoEm, empresa) {
+  return {
+    nome:'', matricula:'', cargo:'', cpf:'', pis:'', base:220,
+    estrutura:'', admissao:'', gerado_em:geradoEm, empresa, horario:'',
+    htrab:0, he_tot:0, adnt:0, adnt_he:0,
+    bh_deb:0, bh_cred:0, saldo_ant:0, saldo_per:0, saldo_at:0,
+    faltas:0, atrasos:0, dias_trab:0,
+    he50:0, he60:0, he100:0, he_outros:0,
+    d_ferias:0, d_afast:0, d_dsem:0, d_folga:0, d_comp:0, d_demissao:0,
+    assinado:'Nao assinado', email_assinatura:'',
+    layout2: false,  // flag para modelo 2 (H.Trab H.E. Ad.N. C.Ponte Débito Crédito Acrés.N.)
+    dias:[],
+  };
+}
+
+function parsePDF(lines) {
+  const employees = [];
+  // pendingGerado: guarda a data da linha "Relatório de Ponto..." que aparece ANTES de "Nome:"
+  // NÃO atribuído ao cur ativo (que pertence à página anterior, para folhas multi-página).
+  // Só é consumido quando "Nome:" cria um novo employee.
+  let cur = null, geradoEm = '', pendingGerado = '', empresa = '', pendingObs = '';
+
+  const flush = () => {
+    if (!cur) return;
+    const heClass = cur.he50 + cur.he60 + cur.he100 + cur.he_outros;
+    if (heClass && heClass > cur.he_tot) cur.he_tot = heClass;
+    // Fallback: HE zerado no cabeçalho mas existe nos dias
+    if (cur.he_tot === 0) {
+      const heDias = cur.dias.reduce((a,d) => a + (d.he_min||0), 0);
+      if (heDias > 0) cur.he_tot = heDias;
+    }
+    employees.push(cur);
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    // ── Data de geração ──────────────────────────────────────────────
+    // A linha "Relatório de Ponto..." aparece ANTES de "Nome:" na mesma página.
+    // Se a atribuíssemos a cur já existente, contaminaríamos o employee anterior
+    // (que pode ter mais de uma página). Guardamos em pendingGerado.
+    let m = line.match(RE_GERADO);
+    if (m && !RE_DAY.test(line)) {
+      pendingGerado = parseTimestamp(m[1]||m[3], m[2]||m[4]);
+      continue;
+    }
+
+    // ── Empresa ──────────────────────────────────────────────────────
+    m = line.match(RE_EMPRESA);
+    if (m) { empresa = m[1].trim(); if (cur) cur.empresa = empresa; }
+
+    // ── Novo colaborador ─────────────────────────────────────────────
+    m = line.match(RE_NOME);
+    if (!m && line.startsWith('Nome:')) m = line.match(RE_NOME_ALT);
+    if (m) {
+      flush();
+      // Consome pendingGerado: é o Gerado Em correto deste novo employee
+      if (pendingGerado) { geradoEm = pendingGerado; pendingGerado = ''; }
+      cur = newEmp(geradoEm, empresa);
+      cur.nome = m[1].trim();
+      pendingObs = '';
+      const adm = line.match(RE_ADMISS);
+      if (adm) cur.admissao = adm[1];
+      continue;
+    }
+
+    if (!cur) continue;
+
+    // ── Cabeçalho do colaborador ─────────────────────────────────────
+    m = line.match(RE_MAT);
+    if (m) cur.matricula = (m[1]||m[2]||'').trim();
+
+    m = line.match(RE_CARGO);
+    if (m) cur.cargo = m[1].trim();
+
+    m = line.match(RE_BASE);
+    if (m) cur.base = Math.round(parseFloat(m[1].replace(',','.')));
+
+    m = line.match(RE_STRUCT);
+    if (m) cur.estrutura = m[1].trim();
+
+    m = line.match(RE_ADMISS);
+    if (m) cur.admissao = m[1];
+
+    m = line.match(RE_CPF);
+    if (m && m[1].replace(/\D/g,'').length >= 11) cur.cpf = m[1].trim();
+
+    m = line.match(RE_PIS);
+    if (m && m[1].replace(/\D/g,'').length >= 10) cur.pis = m[1].trim();
+
+    if (/Hor[aá]rio/.test(line)) {
+      m = line.match(RE_HORARIO);
+      if (m) cur.horario = m[1].trim();
+    }
+
+    // ── Detecção de modelo de folha ──────────────────────────────────
+    // Modelo 2: colunas sem "Ad. N. HE. N." mas com "Acrés. N."
+    if (cur && line.includes('C.Ponte') && line.includes('Crédit') && !line.includes('Ad. N. HE.'))
+      cur.layout2 = true;
+
+    // ── Totais ───────────────────────────────────────────────────────
+    if (RE_TOTAIS.test(line)) {
+      const times = [...line.matchAll(/-?\d{1,3}:\d{2}/g)].map(x=>x[0]);
+      if (times[0]) cur.htrab   = toMin(times[0]);
+      if (times[1]) cur.he_tot  = toMin(times[1]);
+      if (times[2]) cur.adnt    = toMin(times[2]);
+      if (cur.layout2) {
+        // Modelo 2: H.Trab(0) H.E.(1) Ad.N.(2) [Ad.N.HE.](3) C.Ponte(4) Débito(5→4) Crédito(6→5) Acrés.N.(7→6)
+        if (times[3]) cur.adnt_he = toMin(times[3]);
+        if (times[4]) cur.bh_deb  = toMin(times[4]);
+        if (times[5]) cur.bh_cred = toMin(times[5]);
+      } else {
+        // Modelo 1: H.Trab(0) H.E.(1) Ad.N.(2) Ad.N.HE.N.(3) C.Ponte(4,skip) Débito(5) Crédito(6)
+        if (times[3]) cur.adnt_he = toMin(times[3]);
+        if (times[5]) cur.bh_deb  = toMin(times[5]);
+        if (times[6]) cur.bh_cred = toMin(times[6]);
+      }
+    }
+
+    m = line.match(RE_SALDO);
+    if (m) { cur.saldo_ant=toMin(m[1]); cur.saldo_per=toMin(m[2]); cur.saldo_at=toMin(m[3]); }
+
+    m = line.match(RE_DIAS_TR); if (m) cur.dias_trab = parseInt(m[1]);
+    m = line.match(RE_FALTAS);  if (m) cur.faltas    = toMin(m[1]);
+    m = line.match(RE_ATRASOS); if (m) cur.atrasos   = toMin(m[1]);
+
+    for (const hm of line.matchAll(new RegExp(RE_HE_PCT_SRC.source,'g'))) {
+      const pct=parseInt(hm[2]), val=toMin(hm[1]);
+      if      (pct===50)  cur.he50      = val;
+      else if (pct===60)  cur.he60      = val;
+      else if (pct===100) cur.he100     = val;
+      else                cur.he_outros += val;
+    }
+
+    // ── Assinatura ───────────────────────────────────────────────────
+    if (RE_ASSINADO.test(line)) cur.assinado = 'Digital';
+    m = line.match(RE_EMAIL);
+    if (m && m[1].toLowerCase().includes('progen')) cur.email_assinatura = m[1];
+
+    // ── Linha de dia ─────────────────────────────────────────────────
+    const dm = line.match(RE_DAY);
+    if (dm) {
+      const dateStr = dm[1], dow = dm[2];
+      let rest = dm[3].trim();
+      const restOriginal = rest;
+
+      let status    = detectarStatus(rest.toLowerCase());
+      let categoria = CATEGORIA_LABEL[status] ?? status;
+      const preAsin = temPreAssinalado(rest) || (temPreAssinalado(pendingObs) && /\|\s*\d{1,2}:\d{2}/.test(pendingObs));
+
+      // Padrão: dia com rest vazio + status na linha seguinte (pendingObs já acumulado de ciclo anterior)
+      // Ex: "03/02/2026 ter" + pendingObs="Afastamento - AUXILIO DOENCA SUP 15D"
+      if (!rest && pendingObs) {
+        const s = detectarStatus(pendingObs.toLowerCase());
+        if (s !== 'Trabalhou') { status = s; categoria = CATEGORIA_LABEL[s] ?? s; }
+      }
+
+      if      (status === 'Ferias')                              cur.d_ferias++;
+      else if (['Afastamento','Atestado'].includes(status))      cur.d_afast++;
+      else if (status === 'Descanso Semanal')                    cur.d_dsem++;
+      else if (status === 'Folga')                               cur.d_folga++;
+      else if (status === 'Compensado')                          cur.d_comp++;
+      else if (status === 'Demissao')                            cur.d_demissao++;
+
+      // Marcação noturna / janela de ponto
+      let marcIni = '', marcFim = '';
+      const mm = rest.match(RE_MARC);
+      if (mm) { marcIni=mm[1]; marcFim=mm[2]; rest=mm[3]; }
+
+      const { pares, tokensRest } = parseDayLine(rest);
+      const vals = tokensRest.map(toMin);
+
+      let htrabD, heD, adntD;
+      if (!vals.length && pares.length) {
+        htrabD = pares.reduce((a,[e,s]) => a + (toMin(s)-toMin(e)+1440)%1440, 0);
+        heD = adntD = 0;
+      } else {
+        htrabD = vals[0] ?? 0;
+        heD    = vals[1] ?? 0;
+        adntD  = vals[2] ?? 0;
+      }
+      const bhDebD = vals[3] ?? 0, bhCrdD = vals[4] ?? 0;
+
+      if (status !== 'Trabalhou') htrabD = 0;
+
+      // ── Justificativa ────────────────────────────────────────────────
+      // justificativa_texto: texto livre da coluna Justificativa do PDF
+      //   (ex: "INSS", "AUXILIO DOENCA SUP 15D", "esquecimento de ponto")
+      //   Removemos tokens de tempo brutos e o status keyword em si.
+      // justificativa_cat: categoria de ausência pré-definida
+      //   (ex: "Afastamento", "Férias") — só preenchido para dias não trabalhados.
+      let justifPending = pendingObs ? limparJustificativa(pendingObs) : '';
+      if (justifPending && /^[\d:|\-\s]*$/.test(justifPending)) justifPending = '';
+      // Remove prefixo de status que já foi capturado (evita "Afastamento" na justif de dia Afastamento)
+      justifPending = justifPending.replace(/^(afastamento|atestado|f[eé]rias?|folga|compensado)\s*[-–]?\s*/i,'').trim();
+      let justifTexto = limparJustificativa(restOriginal);
+      if (justifTexto && !/[A-Za-zÀ-ÿ]{3}/.test(justifTexto)) justifTexto = '';
+      justifTexto = [justifPending, justifTexto].filter(Boolean).join(' ').trim();
+      pendingObs = '';
+
+      cur.dias.push({
+        data:               dateStr,
+        dia_semana:         dow,
+        status,
+        categoria,
+        justificativa_texto: justifTexto,
+        justificativa_cat:  JUSTIFICATIVAS_CAT.has(status) ? categoria : '',
+        pre_assinalado:     preAsin,
+        marcacao_ini:       marcIni,
+        marcacao_fim:       marcFim,
+        entrada_1:          pares[0]?.[0] ?? '',
+        saida_1:            pares[0]?.[1] ?? '',
+        entrada_2:          pares[1]?.[0] ?? '',
+        saida_2:            pares[1]?.[1] ?? '',
+        htrab:              toHHMM(htrabD),
+        htrab_min:          htrabD,
+        he:                 toHHMM(heD),
+        he_min:             heD,
+        he_classificada:    0,
+        adnt:               toHHMM(adntD),
+        bh_deb:             toHHMM(bhDebD),
+        bh_crd:             toHHMM(bhCrdD),
+      });
+
+    } else {
+      // ── Linha não-dia ────────────────────────────────────────────────
+      //  a) "| HH:MM - PRÉ-ASSINALADO | HH:MM -" → carry-forward (BEFORE pattern)
+      //  b) "PRÉ-ASSINALADO" simples              → retroativo no último dia
+      //  c) "Afastamento - TIPO"                  → retroativo: corrige status do último dia
+      //     com rest vazio (padrão WELLINGTON/WILLIAM: dia vazio + "INSS" + "Afastamento...")
+      //  d) "INSS" / texto livre                  → carry-forward como justificativa
+
+      // Filtra linhas de rodapé/legenda que não são justificativas
+      const isLegend = /^(Legenda:|Editadas|Integracao|lIn Itinere|Acesso API|Assinaladas uma|Vinculados|Negrito|Mobile|adas |Web |Desktop |Offline |Raio )/i.test(line);
+      if (isLegend) continue;
+
+      if (line && !SKIP_KW.some(kw => line.includes(kw)) && cur && line !== '_') {
+        const hasPre   = temPreAssinalado(line);
+        const hasTimes = /\|\s*\d{1,2}:\d{2}/.test(line);
+        const hasText  = /[A-Za-zÀ-ÿ]{3}/.test(limparJustificativa(line));
+
+        if (hasPre && !hasTimes && cur.dias.length) {
+          // PRÉ-ASSINALADO simples = retroativo
+          cur.dias[cur.dias.length - 1].pre_assinalado = true;
+
+        } else if (!hasPre && hasText && cur.dias.length) {
+          const lastDay   = cur.dias[cur.dias.length - 1];
+          const retStatus = detectarStatus(line.toLowerCase());
+
+          // Corrige retroativamente dias com rest vazio que ficaram como "Trabalhou" sem horas
+          if (lastDay.status === 'Trabalhou' && lastDay.htrab_min === 0 && retStatus !== 'Trabalhou') {
+            lastDay.status    = retStatus;
+            lastDay.categoria = CATEGORIA_LABEL[retStatus] ?? retStatus;
+            lastDay.justificativa_cat = JUSTIFICATIVAS_CAT.has(retStatus) ? lastDay.categoria : '';
+            const jm = line.match(/^[A-Za-zÀ-ÿ ]+\s*[-–]\s*(.+)/);
+            if (jm) lastDay.justificativa_texto = jm[1].trim();
+            if      (retStatus === 'Ferias')                              cur.d_ferias++;
+            else if (['Afastamento','Atestado'].includes(retStatus))      cur.d_afast++;
+            else if (retStatus === 'Descanso Semanal')                    cur.d_dsem++;
+            else if (retStatus === 'Folga')                               cur.d_folga++;
+            else if (retStatus === 'Compensado')                          cur.d_comp++;
+            else if (retStatus === 'Demissao')                            cur.d_demissao++;
+            // Linha de texto extra (ex: "INSS") que vier a seguir vira pendingObs
+            // e será descartada quando o próximo dia também tiver rest vazio
+          } else {
+            pendingObs = line.slice(0, 200);
+          }
+        } else if (hasPre || hasText) {
+          pendingObs = line.slice(0, 200);
+        }
+      }
+    }
+  }
+
+  flush();
+  return employees;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GERAR EXCEL
+// ═══════════════════════════════════════════════════════════════════════════
+function buildExcel(employees) {
+  const wb = XLSX.utils.book_new();
+
+  // ── Aba 1: Dados Individuais ──────────────────────────────────────
+  // Colunas: 42 (sem Horario, que nao existe como campo no PDF)
+  const indHeaders = [
+    'Matricula',
+    'Nome',
+    'CPF',
+    'PIS',
+    'Cargo',
+    'Estrutura Organizacional',
+    'Data de Admissao',
+    'Base Contratual h/mes',
+    'Relatorio Gerado Em',
+    'Dias Trabalhados Folha',
+    'Dias com Ponto Registrado',
+    'Dias de Ferias',
+    'Dias de Afastamento',
+    'Dias de Descanso e Folga',
+    'Dias Compensados',
+    'Dias de Demissao',
+    'H Trabalhadas Folha',
+    'H Trabalhadas Calculado',
+    'Total H Extras',
+    'HE 50%',
+    'HE 60%',
+    'HE 100%',
+    'HE Nao Classificada',
+    'HE Classificada Total',
+    'Origem HE',
+    'Adicional Noturno',
+    'Adicional Noturno em HE',
+    'BH Debito',
+    'BH Credito',
+    'Saldo BH Anterior',
+    'Saldo BH do Periodo',
+    'Saldo BH Atual',
+    'Faltas',
+    'Atrasos',
+    'Media H por Dia Trabalhado',
+    'Aderencia Contratual Pct',
+    'Tem Adicional Noturno',
+    'Dias Pre-Assinalados',
+    'Dias Sem Marcacao',
+    'Dias Entrada Sem Saida',
+    'Status da Assinatura',
+    'Email da Assinatura',
+  ];
+  const indRows = [indHeaders];
+
+  // ── Aba 2: Registros Diários ─────────────────────────────────────
+  const diaHeaders = [
+    'Matricula','Nome','Cargo','Base h','Data','Dia da Semana',
+    'Status',
+    'Categoria Ausencia',
+    'Justificativa',
+    'Tipo de Ausencia',
+    'Pre-Assinalado',
+    'Janela Ponto',
+    'Entrada 1','Saida 1',
+    'Entrada 2','Saida 2','H Trabalhadas','H Extras','Adic Noturno',
+    'BH Debito','BH Credito','Alertas',
+  ];
+  const diaRows = [diaHeaders];
+
+  for (const e of employees) {
+    const diasCalc = e.dias.filter(d=>d.htrab_min>0).length;
+    const dias     = e.dias_trab || diasCalc;
+    const htrab    = e.htrab;
+    const he50     = e.he50, he60=e.he60, he100=e.he100;
+    const heClass  = he50+he60+he100+e.he_outros;
+    const heNClass = Math.max(0, e.he_tot - heClass);
+    const heRef    = (heClass > 0 && heClass >= e.he_tot) ? 'Classificada' : 'Cabecalho';
+
+    const diasSemMarcacao = e.dias.filter(d =>
+      d.status==='Trabalhou' && !d.entrada_1 && !d.marcacao_ini).length;
+    const diasEntradaSS   = e.dias.filter(d => d.entrada_1 && !d.saida_1).length;
+    const diasPreAsin     = e.dias.filter(d => d.pre_assinalado).length;
+    const htrabCalc       = e.dias.reduce((a,d)=>a+d.htrab_min,0);
+
+    // Aderência = horas trabalhadas / base contratual mensal (não dias×11h fixos)
+    const baseMin  = (e.base || 0) * 60;
+    const aderPct  = baseMin > 0 ? Math.round(htrab / baseMin * 1000) / 10 : null;
+
+    // Tem Adicional Noturno: vem dos totais do próprio PDF (campo Ad.N.)
+    // Indica que houve ao menos 1 dia com trabalho entre 22h-05h no período.
+    // NÃO significa que o trabalhador é de turno noturno fixo.
+    const temAdnt = e.adnt > 0 ? 'Sim' : 'Nao';
+
+    indRows.push([
+      e.matricula, e.nome, e.cpf, e.pis, e.cargo, e.estrutura,
+      e.admissao, e.base, e.gerado_em,
+      e.dias_trab, diasCalc,
+      e.d_ferias, e.d_afast,
+      e.d_dsem + e.d_folga, e.d_comp, e.d_demissao,
+      toHHMM(htrab), toHHMM(htrabCalc), toHHMM(e.he_tot),
+      toHHMM(he50), toHHMM(he60), toHHMM(he100),
+      toHHMM(heNClass), toHHMM(heClass), heRef,
+      toHHMM(e.adnt), toHHMM(e.adnt_he),
+      toHHMM(e.bh_deb), toHHMM(e.bh_cred),
+      toHHMM(e.saldo_ant), toHHMM(e.saldo_per), toHHMM(e.saldo_at),
+      toHHMM(e.faltas), toHHMM(e.atrasos),
+      dias > 0 ? toHHMM(Math.round(htrab/dias)) : '00:00',
+      aderPct,
+      temAdnt,
+      diasPreAsin, diasSemMarcacao, diasEntradaSS,
+      e.assinado, e.email_assinatura,
+    ]);
+
+    for (const d of e.dias) {
+      // Janela de marcação: explica o "05:01 - 04:59" e "12:01 - 11:59"
+      // Esses valores NÃO são punches reais — são a janela do sistema DIMEP
+      // para aceitar registros como pertencentes a este dia.
+      // 05:01-04:59 = janela diurna (~24h, campo/obra)
+      // 12:01-11:59 = janela noturna (turno tarde/noite)
+      let janela = '';
+      if (d.marcacao_ini && d.marcacao_fim) {
+        const ini = toMin(d.marcacao_ini), fim = toMin(d.marcacao_fim);
+        if (ini === toMin('05:01') && fim === toMin('04:59')) janela = 'Diurna';
+        else if (ini === toMin('12:01') && fim === toMin('11:59')) janela = 'Noturna';
+        else janela = `${d.marcacao_ini}-${d.marcacao_fim}`;
+      }
+
+      diaRows.push([
+        e.matricula, e.nome, e.cargo, e.base,
+        d.data, d.dia_semana, d.status, d.categoria,
+        d.justificativa_texto, d.justificativa_cat,
+        d.pre_assinalado ? 'Sim' : '',
+        janela,
+        d.entrada_1, d.saida_1, d.entrada_2, d.saida_2,
+        d.htrab, d.he, d.adnt, d.bh_deb, d.bh_crd,
+        gerarObservacoes(d),
+      ]);
+    }
+  }
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(indRows), 'Dados Individuais');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(diaRows), 'Registros Diarios');
+  return wb;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UI
+// ═══════════════════════════════════════════════════════════════════════════
+const dz    = document.getElementById('drop-zone');
+const fi    = document.getElementById('file-input');
+const fn    = document.getElementById('fn');
+const btnUp = document.getElementById('btn-up');
+const pw    = document.getElementById('prog-wrap');
+const pb    = document.getElementById('pb');
+const pp    = document.getElementById('pp');
+const pm    = document.getElementById('pm');
+const ew    = document.getElementById('err-wrap');
+const rw    = document.getElementById('res-wrap');
+const reEl  = document.getElementById('re');
+const rrEl  = document.getElementById('rr');
+const btnDl = document.getElementById('btn-dl');
+const btnRe = document.getElementById('btn-re');
+
+const dbg    = document.getElementById('debug-wrap');
+let file = null, wb = null;
+
+function setProg(pct, msg) {
+  pb.style.width = pct+'%'; pp.textContent = pct+'%'; if(msg) pm.textContent = msg;
+}
+function showErr(msg) {
+  pw.style.display='none'; ew.style.display='block'; ew.textContent=msg; btnUp.disabled=false;
+}
+function resetUI() {
+  file=null; wb=null; fn.textContent=''; fi.value=''; btnUp.disabled=true;
+  pw.style.display=ew.style.display=rw.style.display=dbg.style.display='none';
+  btnDl.style.display=btnRe.style.display='none'; setProg(0,'');
+}
+function setFile(f) {
+  if (!f || !f.name.toLowerCase().endsWith('.pdf')) { showErr('Apenas arquivos PDF são aceitos.'); return; }
+  file=f; fn.textContent=f.name; btnUp.disabled=false; wb=null;
+}
+function showDebug(lines, employees) {
+  const sample    = lines.slice(0,40).map((l,i)=>`${String(i+1).padStart(3)}: ${l}`).join('\n');
+  const nomeLines = lines.filter(l => /Nome:/i.test(l));
+  dbg.style.display = 'block';
+  dbg.textContent =
+    `⚠ Colaboradores: ${employees.length} | Linhas extraídas: ${lines.length}\n`+
+    `Linhas com "Nome:": ${nomeLines.length}${nomeLines[0]?' → ex: '+nomeLines[0]:''}\n\n`+
+    `── Primeiras 40 linhas extraídas ──\n${sample}`;
+}
+
+['dragover','dragenter'].forEach(e => {
+  dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add('over'); });
+  fi.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add('over'); });
+});
+['dragleave','drop'].forEach(e => {
+  dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove('over'); });
+  fi.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove('over'); });
+});
+dz.addEventListener('drop', e => { if(e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); });
+fi.addEventListener('drop',   e => { if(e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); });
+fi.addEventListener('change', () => { if (fi.files[0]) setFile(fi.files[0]); });
+
+btnUp.addEventListener('click', async () => {
+  if (!file) return;
+  btnUp.disabled=true; wb=null;
+  pw.style.display='block'; ew.style.display=rw.style.display='none';
+  btnDl.style.display=btnRe.style.display='none';
+  setProg(5, 'Lendo PDF…');
+
+  try {
+    const lines = await extractLines(file, (cur, total) => {
+      const pct = Math.round(5 + (cur/total)*50);
+      setProg(pct, `Extraindo páginas… ${cur}/${total}`);
+    });
+    setProg(55, `${lines.length} linhas extraídas — analisando…`);
+
+    await new Promise(r => setTimeout(r, 0)); // yield para UI repintar
+
+    const employees = parsePDF(lines);
+    setProg(85, 'Gerando planilha…');
+
+    await new Promise(r => setTimeout(r, 0));
+
+    wb = buildExcel(employees);
+    setProg(100, 'Concluído!');
+
+    const totalDias = employees.reduce((a,e)=>a+e.dias.length, 0);
+    reEl.textContent = employees.length.toLocaleString('pt-BR');
+    rrEl.textContent = totalDias.toLocaleString('pt-BR');
+
+    pw.style.display='none';
+    rw.style.display='block';
+    btnDl.style.display='flex';
+    btnRe.style.display='block';
+
+    // Mostra debug se não encontrou nada
+    if (employees.length === 0) showDebug(lines, employees);
+
+  } catch (err) {
+    console.error(err);
+    showErr('Erro ao processar:\n' + err.message + '\n\n' + (err.stack||''));
+  }
+});
+
+btnDl.addEventListener('click', () => {
+  if (!wb) return;
+  XLSX.writeFile(wb, 'Parser_Output.xlsx');
+});
+btnRe.addEventListener('click', resetUI);
+</script>
+</body>
+</html>
