@@ -192,12 +192,18 @@ const JUSTIFICATIVAS_CAT = new Set([
   'Ferias','Afastamento','Atestado','Falta','Feriado','Desmobilizado','Demissao','Licenca'
 ]);
 const SKIP_KW = [
-  'Totais:','Saldo ','Empresa:','Endereco:','Nome:','Matricula:','Cargo:',
+  'Totais:','Saldo ','Empresa:','Endereco:','Endereço:','Nome:',
+  'Matricula:','Matrícula:','Cargo:',
   'PIS:','Relatorio','DIMEP','Kairos','Rendimento','Descontos','H.Trab','Data ',
   'Assinatura','©','Classificada:','DSR:','Legenda:','Editadas','Totais horas',
+  'Atividade Econômica','Carteira de Trabalho','Estrutura organizacional',
 ];
 
 function detectarStatus(lc) {
+  // Caso especial: "Feriado  Férias" → funcionário estava de férias num feriado
+  // A ausência planejada (Férias) tem prioridade sobre o feriado do calendário
+  if ((lc.includes('férias') || lc.includes('ferias')) && lc.includes('feriado'))
+    return 'Ferias';
   // Tenta startsWith primeiro (mais específico)
   for (const [kw,label] of STATUS_MAP) if (lc.startsWith(kw)) return label;
   // Depois includes
@@ -232,7 +238,7 @@ const RE_HE_PCT_SRC = /([\d:]+)\s*-\s*HORA EXTRA\s+(\d+)%/g;
 const RE_ASSINADO = /Assinado Digitalmente por/i;
 const RE_EMAIL    = /([\w.\-]+@[\w.\-]+\.[\w]+)/;
 const RE_DAY      = /^(\d{2}\/\d{2}\/\d{4})\s+(seg|ter|qua|qui|sex|s[aá]b|dom)\s*(.*)/i;
-const RE_MARC     = /^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s+(.*)/;
+const RE_MARC     = /^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*(.*)/;  // trailing content optional
 // RE_PAR e RE_TOK precisam de flag g cada chamada → usamos source
 const RE_PAR_SRC  = /(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/;
 const RE_TOK_SRC  = /\b(\d{1,2}:\d{2})\b/;
@@ -250,9 +256,20 @@ function temPreAssinalado(raw) {
 }
 function limparJustificativa(raw) {
   let t = (raw || '').trim();
+  // Remove PRÉ-ASSINALADO patterns
   t = t.replace(new RegExp(RE_PRE_SRC.source, 'gi'), '').trim();
+  // Remove janela de ponto "HH:MM - HH:MM" que pode vazar do restOriginal
+  t = t.replace(/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/g, '').trim();
+  // Remove pares de batida "HH:MM-HH:MM" (sem espaços)
+  t = t.replace(/\d{1,2}:\d{2}-\d{1,2}:\d{2}/g, '').trim();
+  // Remove tokens de hora soltos (ex: "08:48" no fim de linha de DSR)
+  t = t.replace(/\b\d{1,2}:\d{2}\b/g, '').trim();
+  // Remove código numérico no início (ex: "12 - ATESTADO...")
   t = t.replace(RE_COD_INI, '').trim();
-  t = t.replace(/^[\s|\-]+|[\s|\-]+$/g, '');
+  // Remove keywords de status que já foram capturadas (evita redundância)
+  t = t.replace(/^(descanso semanal|compensado|folga de campo|folga|feriado|férias|ferias)\s*/i, '').trim();
+  // Remove pipes e hífens isolados nas bordas
+  t = t.replace(/^[\s|\-|]+|[\s|\-|]+$/g, '').trim();
   return t;
 }
 
@@ -574,13 +591,21 @@ function parsePDF(lines) {
       // Marcação noturna / janela de ponto
       let marcIni = '', marcFim = '';
       const mm = rest.match(RE_MARC);
-      if (mm) { marcIni=mm[1]; marcFim=mm[2]; rest=mm[3]; }
+      if (mm) { marcIni=mm[1]; marcFim=mm[2]; rest=mm[3].trim(); }
+
+      // Dia com apenas janela de ponto (ex: DARCIO: "11/01/2026 dom  05:01 - 04:59")
+      // Sem nenhum punch registrado. Status deve permanecer Trabalhou mas htrab=0.
+      // NÃO calcular htrab a partir da janela (evita 23h58m incorreto).
+      const windowOnly = marcIni && !rest && status === 'Trabalhou';
 
       const { pares, tokensRest } = parseDayLine(rest);
       const vals = tokensRest.map(toMin);
 
       let htrabD, heD, adntD;
-      if (!vals.length && pares.length) {
+      if (windowOnly) {
+        // Janela sem punch → htrab=0, sem pares
+        htrabD = heD = adntD = 0;
+      } else if (!vals.length && pares.length) {
         htrabD = pares.reduce((a,[e,s]) => a + (toMin(s)-toMin(e)+1440)%1440, 0);
         heD = adntD = 0;
       } else {
@@ -590,7 +615,11 @@ function parsePDF(lines) {
       }
       const bhDebD = vals[3] ?? 0, bhCrdD = vals[4] ?? 0;
 
-      if (status !== 'Trabalhou') htrabD = 0;
+      // Compensado com ponto registrado: mantém htrab para contagem de diasCalc,
+      // mas NÃO entra no total de H.Trabalhadas (gestão de horas extras separada).
+      // Para outros status não trabalhados (Férias, Afastamento, etc.): htrab = 0.
+      if (status !== 'Trabalhou' && status !== 'Compensado') htrabD = 0;
+      if (status === 'Compensado' && !pares.length) htrabD = 0; // Compensado sem ponto = 0
 
       // ── Justificativa ────────────────────────────────────────────────
       // justificativa_texto: texto livre da coluna Justificativa do PDF
@@ -692,7 +721,9 @@ function buildExcel(employees) {
   const wb = XLSX.utils.book_new();
 
   // ── Aba 1: Dados Individuais ──────────────────────────────────────
-  // Colunas: 42 (sem Horario, que nao existe como campo no PDF)
+  // 38 colunas (removidas: Saldo BH Anterior sempre 00:00,
+  //   Faltas sempre 00:00, Dias Sem Marcacao e Dias Entrada Sem Saida
+  //   ambos sempre 0 após as correções de parser)
   const indHeaders = [
     'Matricula',
     'Nome',
@@ -703,15 +734,15 @@ function buildExcel(employees) {
     'Data de Admissao',
     'Base Contratual h/mes',
     'Relatorio Gerado Em',
-    'Dias Trabalhados Folha',
+    'Dias Trabalhados (PDF)',
     'Dias com Ponto Registrado',
     'Dias de Ferias',
     'Dias de Afastamento',
     'Dias de Descanso e Folga',
     'Dias Compensados',
     'Dias de Demissao',
-    'H Trabalhadas Folha',
-    'H Trabalhadas Calculado',
+    'H Trabalhadas (PDF)',
+    'H Trabalhadas (Calc)',
     'Total H Extras',
     'HE 50%',
     'HE 60%',
@@ -723,17 +754,13 @@ function buildExcel(employees) {
     'Adicional Noturno em HE',
     'BH Debito',
     'BH Credito',
-    'Saldo BH Anterior',
     'Saldo BH do Periodo',
     'Saldo BH Atual',
-    'Faltas',
     'Atrasos',
     'Media H por Dia Trabalhado',
     'Aderencia Contratual Pct',
     'Tem Adicional Noturno',
     'Dias Pre-Assinalados',
-    'Dias Sem Marcacao',
-    'Dias Entrada Sem Saida',
     'Status da Assinatura',
     'Email da Assinatura',
   ];
@@ -755,7 +782,9 @@ function buildExcel(employees) {
   const diaRows = [diaHeaders];
 
   for (const e of employees) {
-    const diasCalc = e.dias.filter(d=>d.htrab_min>0).length;
+    // diasCalc: dias com htrab > 0 (inclui Trabalhou E Compensado com ponto)
+    // Isso alinha com o "Dias trabalhados:N" do rodapé da folha do DIMEP.
+    const diasCalc = e.dias.filter(d => d.htrab_min > 0).length;
     const dias     = e.dias_trab || diasCalc;
     const htrab    = e.htrab;
     const he50     = e.he50, he60=e.he60, he100=e.he100;
@@ -789,12 +818,12 @@ function buildExcel(employees) {
       toHHMM(heNClass), toHHMM(heClass), heRef,
       toHHMM(e.adnt), toHHMM(e.adnt_he),
       toHHMM(e.bh_deb), toHHMM(e.bh_cred),
-      toHHMM(e.saldo_ant), toHHMM(e.saldo_per), toHHMM(e.saldo_at),
-      toHHMM(e.faltas), toHHMM(e.atrasos),
+      toHHMM(e.saldo_per), toHHMM(e.saldo_at),
+      toHHMM(e.atrasos),
       dias > 0 ? toHHMM(Math.round(htrab/dias)) : '00:00',
       aderPct,
       temAdnt,
-      diasPreAsin, diasSemMarcacao, diasEntradaSS,
+      diasPreAsin,
       e.assinado, e.email_assinatura,
     ]);
 
@@ -816,7 +845,7 @@ function buildExcel(employees) {
         e.matricula, e.nome, e.cargo, e.base,
         d.data, d.dia_semana, d.status, d.categoria,
         d.justificativa_texto, d.justificativa_cat,
-        d.pre_assinalado ? 'Sim' : '',
+        d.pre_assinalado ? 'Sim' : 'Nao',
         janela,
         d.entrada_1, d.saida_1, d.entrada_2, d.saida_2,
         d.htrab, d.he, d.adnt, d.bh_deb, d.bh_crd,
